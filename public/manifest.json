@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "Image Editor Pro",
+  "version": "1.0.0",
+  "description": "Professional image editing tools for Chrome",
+  "permissions": [
+    "activeTab",
+    "storage"
+  ],
+  "action": {
+    "default_popup": "index.html",
+    "default_title": "Image Editor Pro",
+    "default_icon": {
+      "16": "favicon.ico",
+      "48": "favicon.ico",
+      "128": "favicon.ico"
+    }
+  },
+  "icons": {
+    "16": "favicon.ico",
+    "48": "favicon.ico",
+    "128": "favicon.ico"
+  },
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
+  }
+}
