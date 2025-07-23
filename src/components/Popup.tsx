@@ -1,5 +1,5 @@
+
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { Upload, Camera, History, Sparkles } from "lucide-react";
 import { HeroButton } from "@/components/ui/button-variants";
 import { Card } from "@/components/ui/card";
@@ -8,8 +8,28 @@ import extensionLogo from "@/assets/extension-logo.png";
 import { captureScreenshot } from "@/utils/imageUtils";
 
 export const Popup = () => {
-  const navigate = useNavigate();
   const [isCapturing, setIsCapturing] = useState(false);
+
+  const openEditorInNewTab = (imageData: string, fileName: string) => {
+    // Store the image data in localStorage temporarily
+    const editorData = {
+      imageData,
+      fileName,
+      timestamp: Date.now()
+    };
+    localStorage.setItem('editorData', JSON.stringify(editorData));
+    
+    // Open the editor in a new tab
+    chrome.tabs.create({
+      url: chrome.runtime.getURL('index.html#/editor')
+    });
+  };
+
+  const openHistoryInNewTab = () => {
+    chrome.tabs.create({
+      url: chrome.runtime.getURL('index.html#/history')
+    });
+  };
 
   const handleUploadImage = () => {
     const input = document.createElement("input");
@@ -21,10 +41,10 @@ export const Popup = () => {
         const reader = new FileReader();
         reader.onload = (e) => {
           const imageData = e.target?.result as string;
-          navigate("/editor", { state: { imageData, fileName: file.name } });
+          openEditorInNewTab(imageData, file.name);
+          toast.success("Image uploaded successfully!");
         };
         reader.readAsDataURL(file);
-        toast.success("Image uploaded successfully!");
       }
     };
     input.click();
@@ -34,12 +54,8 @@ export const Popup = () => {
     setIsCapturing(true);
     try {
       const screenshot = await captureScreenshot();
-      navigate("/editor", { 
-        state: { 
-          imageData: screenshot, 
-          fileName: `screenshot-${Date.now()}.png` 
-        } 
-      });
+      const fileName = `screenshot-${Date.now()}.png`;
+      openEditorInNewTab(screenshot, fileName);
       toast.success("Screenshot captured!");
     } catch (error) {
       toast.error("Failed to capture screenshot");
@@ -49,7 +65,7 @@ export const Popup = () => {
   };
 
   const handleHistory = () => {
-    navigate("/history");
+    openHistoryInNewTab();
   };
 
   return (

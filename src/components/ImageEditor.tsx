@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Canvas as FabricCanvas, Circle, Rect, FabricText, PencilBrush, FabricImage } from "fabric";
 import { 
   Crop, 
@@ -40,15 +40,27 @@ const tools = [
 
 export const ImageEditor = () => {
   const navigate = useNavigate();
-  const location = useLocation();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [fabricCanvas, setFabricCanvas] = useState<FabricCanvas | null>(null);
   const [activeTool, setActiveTool] = useState<string>("select");
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
   const [zoom, setZoom] = useState(1);
+  const [imageData, setImageData] = useState<string | null>(null);
+  const [fileName, setFileName] = useState<string>("");
 
-  const { imageData, fileName } = location.state || {};
+  // Load image data from localStorage or location state
+  useEffect(() => {
+    // First check localStorage for editor data
+    const storedData = localStorage.getItem('editorData');
+    if (storedData) {
+      const { imageData: storedImageData, fileName: storedFileName } = JSON.parse(storedData);
+      setImageData(storedImageData);
+      setFileName(storedFileName);
+      // Clear the data from localStorage after using it
+      localStorage.removeItem('editorData');
+    }
+  }, []);
 
   useEffect(() => {
     if (!canvasRef.current || !imageData) return;
@@ -233,6 +245,11 @@ export const ImageEditor = () => {
     }
   };
 
+  const handleGoBack = () => {
+    // Close the current tab and return to the extension popup
+    window.close();
+  };
+
   if (!imageData) {
     return (
       <div className="h-screen flex items-center justify-center bg-background">
@@ -241,8 +258,8 @@ export const ImageEditor = () => {
           <p className="text-muted-foreground mb-6">
             Please upload an image or take a screenshot to start editing.
           </p>
-          <Button onClick={() => navigate("/")}>
-            Go Back
+          <Button onClick={handleGoBack}>
+            Close
           </Button>
         </Card>
       </div>
@@ -258,11 +275,11 @@ export const ImageEditor = () => {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => navigate("/")}
+              onClick={handleGoBack}
               className="hover:bg-secondary/80"
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
-              Back
+              Close
             </Button>
             <h1 className="text-lg font-semibold">Image Editor</h1>
           </div>
