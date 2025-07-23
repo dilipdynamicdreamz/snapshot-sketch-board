@@ -65,32 +65,42 @@ export const ImageEditor = () => {
   useEffect(() => {
     if (!canvasRef.current || !imageData) return;
 
-    const canvas = new FabricCanvas(canvasRef.current, {
-      width: 800,
-      height: 600,
-      backgroundColor: "#ffffff",
-    });
-
-    // Load the image
+    // Load the image first to get its dimensions
     FabricImage.fromURL(imageData).then((img) => {
-      // Scale image to fit canvas
-      const canvasWidth = canvas.getWidth();
-      const canvasHeight = canvas.getHeight();
-      const imgWidth = img.width || 1;
-      const imgHeight = img.height || 1;
+      const imgWidth = img.width || 800;
+      const imgHeight = img.height || 600;
       
-      const scale = Math.min(canvasWidth / imgWidth, canvasHeight / imgHeight) * 0.8;
+      // Set canvas size to match image dimensions (with max constraints for UI)
+      const maxWidth = window.innerWidth - 300; // Account for sidebars
+      const maxHeight = window.innerHeight - 200; // Account for header
+      
+      const scale = Math.min(maxWidth / imgWidth, maxHeight / imgHeight, 1);
+      const canvasWidth = imgWidth * scale;
+      const canvasHeight = imgHeight * scale;
+
+      const canvas = new FabricCanvas(canvasRef.current, {
+        width: canvasWidth,
+        height: canvasHeight,
+        backgroundColor: "#ffffff",
+      });
+
+      // Scale image to fit canvas exactly
       img.scale(scale);
+      img.set({
+        left: 0,
+        top: 0,
+        selectable: false, // Make the base image non-selectable
+      });
       
       canvas.add(img);
-      canvas.centerObject(img);
       canvas.renderAll();
+      setFabricCanvas(canvas);
     });
 
-    setFabricCanvas(canvas);
-
     return () => {
-      canvas.dispose();
+      if (fabricCanvas) {
+        fabricCanvas.dispose();
+      }
     };
   }, [imageData]);
 
@@ -175,22 +185,31 @@ export const ImageEditor = () => {
     if (!fabricCanvas) return;
 
     try {
-      const dataUrl = fabricCanvas.toDataURL({
-        format: "png",
-        quality: 1,
-        multiplier: 1,
-      });
+      // Get the original image dimensions for export
+      const objects = fabricCanvas.getObjects();
+      const baseImage = objects[0]; // First object is the base image
+      
+      if (baseImage && baseImage.type === 'image') {
+        const originalWidth = (baseImage as any).getOriginalElementWidth();
+        const originalHeight = (baseImage as any).getOriginalElementHeight();
+        
+        const dataUrl = fabricCanvas.toDataURL({
+          format: "png",
+          quality: 1,
+          multiplier: Math.max(originalWidth / fabricCanvas.getWidth(), originalHeight / fabricCanvas.getHeight()),
+        });
 
-      // Copy to clipboard if supported
-      if (navigator.clipboard && window.ClipboardItem) {
-        const response = await fetch(dataUrl);
-        const blob = await response.blob();
-        await navigator.clipboard.write([
-          new ClipboardItem({ [blob.type]: blob }),
-        ]);
-        toast.success("Image copied to clipboard!");
-      } else {
-        toast.info("Copy to clipboard not supported. Use Download instead.");
+        // Copy to clipboard if supported
+        if (navigator.clipboard && window.ClipboardItem) {
+          const response = await fetch(dataUrl);
+          const blob = await response.blob();
+          await navigator.clipboard.write([
+            new ClipboardItem({ [blob.type]: blob }),
+          ]);
+          toast.success("Image copied to clipboard!");
+        } else {
+          toast.info("Copy to clipboard not supported. Use Download instead.");
+        }
       }
     } catch (error) {
       toast.error("Failed to copy image");
@@ -201,11 +220,27 @@ export const ImageEditor = () => {
     if (!fabricCanvas) return;
 
     try {
-      const dataUrl = fabricCanvas.toDataURL({
-        format: "png",
-        quality: 1,
-        multiplier: 1,
-      });
+      // Get the original image dimensions for export
+      const objects = fabricCanvas.getObjects();
+      const baseImage = objects[0]; // First object is the base image
+      
+      let dataUrl;
+      if (baseImage && baseImage.type === 'image') {
+        const originalWidth = (baseImage as any).getOriginalElementWidth();
+        const originalHeight = (baseImage as any).getOriginalElementHeight();
+        
+        dataUrl = fabricCanvas.toDataURL({
+          format: "png",
+          quality: 1,
+          multiplier: Math.max(originalWidth / fabricCanvas.getWidth(), originalHeight / fabricCanvas.getHeight()),
+        });
+      } else {
+        dataUrl = fabricCanvas.toDataURL({
+          format: "png",
+          quality: 1,
+          multiplier: 1,
+        });
+      }
 
       const downloadName = fileName || `edited-image-${Date.now()}.png`;
       downloadImage(dataUrl, downloadName);
