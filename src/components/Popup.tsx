@@ -19,16 +19,28 @@ export const Popup = () => {
     };
     localStorage.setItem('editorData', JSON.stringify(editorData));
     
-    // Open the editor in a new tab
-    chrome.tabs.create({
-      url: chrome.runtime.getURL('index.html#/editor')
-    });
+    // Check if we're in a Chrome extension context
+    if (typeof chrome !== 'undefined' && chrome.tabs && chrome.runtime) {
+      // Open the editor in a new tab (Chrome extension)
+      chrome.tabs.create({
+        url: chrome.runtime.getURL('index.html#/editor')
+      });
+    } else {
+      // Open the editor in the same tab (web app)
+      window.location.href = '#/editor';
+    }
   };
 
   const openHistoryInNewTab = () => {
-    chrome.tabs.create({
-      url: chrome.runtime.getURL('index.html#/history')
-    });
+    // Check if we're in a Chrome extension context
+    if (typeof chrome !== 'undefined' && chrome.tabs && chrome.runtime) {
+      chrome.tabs.create({
+        url: chrome.runtime.getURL('index.html#/history')
+      });
+    } else {
+      // Open the history in the same tab (web app)
+      window.location.href = '#/history';
+    }
   };
 
   const handleUploadImage = () => {

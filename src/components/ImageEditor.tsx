@@ -65,37 +65,46 @@ export const ImageEditor = () => {
   useEffect(() => {
     if (!canvasRef.current || !imageData) return;
 
-    // Load the image first to get its dimensions
-    FabricImage.fromURL(imageData).then((img) => {
-      const imgWidth = img.width || 800;
-      const imgHeight = img.height || 600;
-      
-      // Set canvas size to match image dimensions (with max constraints for UI)
-      const maxWidth = window.innerWidth - 300; // Account for sidebars
-      const maxHeight = window.innerHeight - 200; // Account for header
-      
-      const scale = Math.min(maxWidth / imgWidth, maxHeight / imgHeight, 1);
-      const canvasWidth = imgWidth * scale;
-      const canvasHeight = imgHeight * scale;
+    const initCanvas = async () => {
+      try {
+        // Load the image first to get its dimensions
+        const img = await FabricImage.fromURL(imageData);
+        const imgWidth = img.width || 800;
+        const imgHeight = img.height || 600;
+        
+        // Set canvas size to match image dimensions (with max constraints for UI)
+        const maxWidth = window.innerWidth - 300; // Account for sidebars
+        const maxHeight = window.innerHeight - 200; // Account for header
+        
+        const scale = Math.min(maxWidth / imgWidth, maxHeight / imgHeight, 1);
+        const canvasWidth = imgWidth * scale;
+        const canvasHeight = imgHeight * scale;
 
-      const canvas = new FabricCanvas(canvasRef.current, {
-        width: canvasWidth,
-        height: canvasHeight,
-        backgroundColor: "#ffffff",
-      });
+        const canvas = new FabricCanvas(canvasRef.current!, {
+          width: canvasWidth,
+          height: canvasHeight,
+          backgroundColor: "#ffffff",
+        });
 
-      // Scale image to fit canvas exactly
-      img.scale(scale);
-      img.set({
-        left: 0,
-        top: 0,
-        selectable: false, // Make the base image non-selectable
-      });
-      
-      canvas.add(img);
-      canvas.renderAll();
-      setFabricCanvas(canvas);
-    });
+        // Scale image to fit canvas exactly
+        img.scale(scale);
+        img.set({
+          left: 0,
+          top: 0,
+          selectable: false, // Make the base image non-selectable
+          evented: false, // Prevent events on base image
+        });
+        
+        canvas.add(img);
+        canvas.renderAll();
+        setFabricCanvas(canvas);
+      } catch (error) {
+        console.error('Error loading image:', error);
+        toast.error('Failed to load image');
+      }
+    };
+
+    initCanvas();
 
     return () => {
       if (fabricCanvas) {
@@ -185,33 +194,27 @@ export const ImageEditor = () => {
     if (!fabricCanvas) return;
 
     try {
-      // Get the original image dimensions for export
-      const objects = fabricCanvas.getObjects();
-      const baseImage = objects[0]; // First object is the base image
-      
-      if (baseImage && baseImage.type === 'image') {
-        const originalWidth = (baseImage as any).getOriginalElementWidth();
-        const originalHeight = (baseImage as any).getOriginalElementHeight();
-        
-        const dataUrl = fabricCanvas.toDataURL({
-          format: "png",
-          quality: 1,
-          multiplier: Math.max(originalWidth / fabricCanvas.getWidth(), originalHeight / fabricCanvas.getHeight()),
-        });
+      const dataUrl = fabricCanvas.toDataURL({
+        format: "png",
+        quality: 1,
+        multiplier: 2, // Higher resolution for better quality
+      });
 
-        // Copy to clipboard if supported
-        if (navigator.clipboard && window.ClipboardItem) {
-          const response = await fetch(dataUrl);
-          const blob = await response.blob();
-          await navigator.clipboard.write([
-            new ClipboardItem({ [blob.type]: blob }),
-          ]);
-          toast.success("Image copied to clipboard!");
-        } else {
-          toast.info("Copy to clipboard not supported. Use Download instead.");
-        }
+      // Copy to clipboard if supported
+      if (navigator.clipboard && window.ClipboardItem) {
+        const response = await fetch(dataUrl);
+        const blob = await response.blob();
+        await navigator.clipboard.write([
+          new ClipboardItem({ [blob.type]: blob }),
+        ]);
+        toast.success("Image copied to clipboard!");
+      } else {
+        // Fallback: copy text
+        await navigator.clipboard.writeText(dataUrl);
+        toast.success("Image data copied to clipboard!");
       }
     } catch (error) {
+      console.error('Copy error:', error);
       toast.error("Failed to copy image");
     }
   };
@@ -220,27 +223,11 @@ export const ImageEditor = () => {
     if (!fabricCanvas) return;
 
     try {
-      // Get the original image dimensions for export
-      const objects = fabricCanvas.getObjects();
-      const baseImage = objects[0]; // First object is the base image
-      
-      let dataUrl;
-      if (baseImage && baseImage.type === 'image') {
-        const originalWidth = (baseImage as any).getOriginalElementWidth();
-        const originalHeight = (baseImage as any).getOriginalElementHeight();
-        
-        dataUrl = fabricCanvas.toDataURL({
-          format: "png",
-          quality: 1,
-          multiplier: Math.max(originalWidth / fabricCanvas.getWidth(), originalHeight / fabricCanvas.getHeight()),
-        });
-      } else {
-        dataUrl = fabricCanvas.toDataURL({
-          format: "png",
-          quality: 1,
-          multiplier: 1,
-        });
-      }
+      const dataUrl = fabricCanvas.toDataURL({
+        format: "png",
+        quality: 1,
+        multiplier: 2, // Higher resolution for better quality
+      });
 
       const downloadName = fileName || `edited-image-${Date.now()}.png`;
       downloadImage(dataUrl, downloadName);
@@ -258,6 +245,7 @@ export const ImageEditor = () => {
 
       toast.success("Image downloaded and saved to history!");
     } catch (error) {
+      console.error('Download error:', error);
       toast.error("Failed to download image");
     }
   };
